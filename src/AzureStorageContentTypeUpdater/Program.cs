@@ -16,6 +16,8 @@ namespace AzureStorageContentTypeUpdater
         public static string Key { get; set; }
         public static string Container { get; set; }
         public static bool UseHttps { get; set; }
+        public static bool Lowercase { get; set; }
+        public static CloudBlobClient Client { get; set; }
 
         public static IDictionary<string, string> ExtraMimeMaps = new Dictionary<string, string>
         {
@@ -32,11 +34,11 @@ namespace AzureStorageContentTypeUpdater
             ParseArguments(args);
 
             var acccount = GetStorageAccount();
-            var client = acccount.CreateCloudBlobClient();
+            Client = acccount.CreateCloudBlobClient();
 
             if (string.IsNullOrWhiteSpace(Container))
             {
-                var containers = client.ListContainers();
+                var containers = Client.ListContainers();
 
                 foreach (var c in containers)
                 {
@@ -45,7 +47,7 @@ namespace AzureStorageContentTypeUpdater
             }
             else
             {
-                var container = client.GetContainerReference(Container);
+                var container = Client.GetContainerReference(Container);
 
                 MapContainerFilesContentType(container);
             }
@@ -54,7 +56,7 @@ namespace AzureStorageContentTypeUpdater
         private static void MapContainerFilesContentType(CloudBlobContainer container)
         {
             var blobs = container.ListBlobs()
-                .Select(x => x.AsBlockBlob())
+                .Select(x => x as CloudBlockBlob)
                 .Where(x => x != null);
 
             foreach (var blob in blobs)
@@ -63,7 +65,7 @@ namespace AzureStorageContentTypeUpdater
             }
 
             var folders = container.ListBlobs()
-                .Select(x => x.AsBlobDirectory())
+                .Select(x => x as CloudBlobDirectory)
                 .Where(x => x != null);
 
             ProcessBlobDirectory(folders);
@@ -81,12 +83,24 @@ namespace AzureStorageContentTypeUpdater
                 }
                 else
                 {
-                    blob.Properties.ContentType = MimeMapping.GetMimeMapping(blob.Name); ;
+                    blob.Properties.ContentType = MimeMapping.GetMimeMapping(blob.Name);
                 }
 
                 blob.SetProperties();
 
-                Console.WriteLine("{0} -> {1}", blob.Name, blob.Properties.ContentType);
+                if (Lowercase)
+                {
+                    var newBlob = blob.Container.GetBlockBlobReference(blob.GetLowercasePath());
+                    newBlob.StartCopyFromBlob(blob);
+
+                    Console.WriteLine("{0} -> {1}", newBlob.Name,
+                        blob.Properties.ContentType);
+                }
+                else
+                {
+                    Console.WriteLine("{0} -> {1}", blob.Name, blob.Properties.ContentType);
+                }
+
             }
             catch
             {
@@ -99,7 +113,7 @@ namespace AzureStorageContentTypeUpdater
             foreach (var folder in folders)
             {
                 var blobs = folder.ListBlobs()
-                    .Select(x => x.AsBlockBlob())
+                    .Select(x => x as CloudBlockBlob)
                     .Where(x => x != null);
 
                 foreach (var b in blobs)
@@ -108,7 +122,7 @@ namespace AzureStorageContentTypeUpdater
                 }
 
                 var directories = folder.ListBlobs()
-                    .Select(x => x.AsBlobDirectory())
+                    .Select(x => x as CloudBlobDirectory)
                     .Where(x => x != null);
 
                 ProcessBlobDirectory(directories);
@@ -139,6 +153,9 @@ namespace AzureStorageContentTypeUpdater
 
             p.Setup<bool>("https")
                 .Callback(x => UseHttps = x);
+
+            p.Setup<bool>("lowercase")
+                .Callback(x => Lowercase = x);
 
             p.Parse(args);
         }

@@ -1,31 +1,21 @@
+﻿using System.IO;
 using Microsoft.WindowsAzure.Storage.Blob;
 
 namespace AzureStorageContentTypeUpdater
 {
     public static class BlobExtensions
     {
-        public static CloudBlockBlob AsBlockBlob(this IListBlobItem item)
+        public static string GetLowercasePath(this CloudBlockBlob blob)
         {
-            try
-            {
-                return (CloudBlockBlob) item;
-            }
-            catch
-            {
-                return null;
-            }
-        }
+            var fileName = Path.GetFileName(blob.Name);
 
-        public static CloudBlobDirectory AsBlobDirectory(this IListBlobItem item)
-        {
-            try
+            if (string.IsNullOrWhiteSpace(fileName))
             {
-                return (CloudBlobDirectory)item;
+                return blob.Name;
             }
-            catch
-            {
-                return null;
-            }
+
+            var dir = blob.Name.Replace(fileName, "");
+            return dir.ToLowerInvariant() + fileName;
         }
     }
 }

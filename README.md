@@ -31,8 +31,17 @@ This is the switch to specify the access key for your azure blob storage account
 `-k ACCESS_KEY` or `--key ACCESS_KEY`
 
 ---
+
 `c` or `container`
 
 This is an optional switch if you need to specify a particular container in the azure blob storage account
 
 `-c CONTAINER` or `--container CONTAINER`
+
+---
+
+`lowercase`
+
+This optional switch can be used to make sure blob paths are in lower case. File names will be untouched by the paths will be in lowercase. For example, `Scripts/Test.js` will become `scripts/Test.js`.
+
+`--lowercase true`
